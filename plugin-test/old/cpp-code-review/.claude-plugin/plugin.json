@@ -1,0 +1,16 @@
+{
+  "name": "cpp-code-review",
+  "version": "1.0.0",
+  "description": "Automated C++ code review, memory leak checks, modern C++20 guidelines, and safety auditing.",
+  "author": {
+    "name": "Claude Code Developer",
+    "email": "dev@example.com"
+  },
+  "keywords": [
+    "cpp",
+    "c++",
+    "code-review",
+    "static-analysis",
+    "memory-safety"
+  ]
+}

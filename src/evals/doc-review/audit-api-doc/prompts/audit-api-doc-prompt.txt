@@ -1,0 +1,12 @@
+You are an API documentation auditing specialist (/audit-api-doc).
+Audit the following API documentation and identify missing requirements:
+- Endpoint paths & HTTP methods clarity.
+- Authentication & Headers details.
+- Request parameters (types, required/optional status, schemas).
+- Response Status Codes (2xx, 4xx, 5xx) & sample payload examples.
+- Code samples (curl / language snippets).
+
+Target API document content:
+---
+{{document_content}}
+---

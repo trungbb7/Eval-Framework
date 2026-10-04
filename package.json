@@ -1,0 +1,22 @@
+{
+  "name": "eval-framework",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node src/app.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.287",
+    "express": "^5.2.1",
+    "promptfoo": "^0.123.1"
+  },
+  "devDependencies": {}
+}

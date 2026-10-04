@@ -1,0 +1,46 @@
+description: "Evaluation suite for doc-review plugin (Claude Code Plugin Marketplace)"
+
+prompts:
+  - "{{prompt}}"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    label: Provider with plugin
+    config:
+      model: claude-sonnet-5
+      apiKeyRequired: false
+      working_dir: "."
+      permission_mode: acceptEdits
+      plugins:
+        - type: local
+          path: ./doc-review
+
+      append_allowed_tools:
+        - "*"
+
+  - id: anthropic:claude-agent-sdk
+    label: Provider without plugin
+    config:
+      model: claude-sonnet-5
+      apiKeyRequired: false
+      working_dir: "."
+      permission_mode: acceptEdits
+
+      append_allowed_tools:
+        - "Skill"
+
+defaultTest:
+  options:
+    transform: output.toLowerCase()
+    provider:
+      id: anthropic:claude-agent-sdk
+      label: Judge Model Provider
+      config:
+        model: claude-sonnet-5
+        apiKeyRequired: false
+
+tests:
+  # - file://src/evals/doc-review/audit-api-doc/testcases/audit-api-doc-testcases.yaml
+  # - file://src/evals/doc-review/doc-lint/testcases/doc-lint-testcases.yaml
+  - file://src/evals/doc-review/review-doc/testcases/review-doc-testcases.yaml
+  # - file://src/evals/code-review/cpp-review/testcases/cpp-review-testcases.yaml

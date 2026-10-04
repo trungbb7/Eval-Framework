@@ -1,0 +1,350 @@
+- description: "TC-CPP-H01 - Dangling std::string_view"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      getUserName() must return a view that remains valid for the caller
+      after the function returns.
+
+    context: |
+      User::name() returns a std::string by value.
+      The returned string is a temporary object.
+
+    code: |
+      std::string_view getUserName(const User& user) {
+          return user.name();
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        Evaluate the review against:
+
+        Expected findings:
+          The returned std::string_view refers to the character buffer of a
+          temporary std::string that is destroye
+
+        Forbidden findings:
+          Do not report a memory leak.
+          Do not claim that std::string_view itself owns the underlying string.
+
+        The reviewer must identify the lifetime problem caused by returning
+        a string_view referring to a temporary std::string.
+        Merely saying that string_view is "unsafe" is insufficient.
+
+- description: "TC-CPP-H02 - Reference to local object"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      getConfig() must return a valid Config object that remains alive
+      after the function returns.
+
+    context: |
+      The caller expects the returned reference to remain valid.
+
+    code: |
+      const Config& getConfig() {
+          Config config;
+          loadDefaults(config);
+          return config;
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must identify that config is a local automatic object
+        and that returning a reference to it creates a dangling reference.
+        The review should explain the lifetime boundary rather than merely
+        saying "reference is unsafe."
+
+- description: "TC-CPP-H03 - Lambda captures local variable by reference"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      createTask() returns a callable that may be executed asynchronously
+      after createTask() has returned.
+
+    context: |
+      The returned lambda can execute much later on a worker thread.
+
+    code: |
+      std::function<void()> createTask() {
+          std::string path = "/tmp/config.dat";
+
+          return [&]() {
+              processFile(path);
+          };
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        Identify the dangling-reference capture.
+        The review must connect the lambda lifetime with the lifetime of
+        the local variable path.
+        A valid fix may capture path by value.
+
+- description: "TC-CPP-H04 - reserve does not create elements"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      initializeBuffer() must create count initialized elements in the vector.
+
+    context: |
+      buffer should contain count actual elements after the function returns.
+      The caller expects buffer.size() == count.
+
+    code: |
+      void initializeBuffer(std::vector<int>& buffer, std::size_t count) {
+          buffer.reserve(count);
+
+          for (std::size_t i = 0; i < count; ++i) {
+              buffer[i] = 0;
+          }
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must distinguish vector capacity from vector size.
+        reserve(count) does not create count elements.
+        Accessing buffer[i] without resize() is invalid.
+        A correct fix should use resize(count) or otherwise create elements.
+
+- description: "TC-CPP-H05 - Integer overflow in allocation size"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      allocateBuffer() must allocate enough memory for count objects of
+      elementSize bytes.
+
+    context: |
+      count and elementSize originate from external input.
+      They may be large values.
+
+    code: |
+      void* allocateBuffer(std::uint32_t count,
+                           std::uint32_t elementSize) {
+          std::uint32_t size = count * elementSize;
+          return std::malloc(size);
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must identify the integer overflow risk in
+        count * elementSize before allocation.
+        The review should connect the arithmetic overflow to the possibility
+        of allocating insufficient memory and subsequent memory corruption.
+
+- description: "TC-CPP-H06 - Signed unsigned comparison"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      getItem() should reject negative indexes and return nullptr when
+      index is outside the vector range.
+
+    context: |
+      index comes from external input and may be negative.
+
+    code: |
+      Item* getItem(const std::vector<Item>& items, int index) {
+          if (index >= items.size()) {
+              return nullptr;
+          }
+
+          return const_cast<Item*>(&items[index]);
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        Evaluate whether the reviewer demonstrates an understanding of
+        signed/unsigned conversion in the comparison.
+        Also evaluate whether the reviewer notices the unnecessary
+        const_cast and discusses it accurately without claiming that
+        const_cast alone is undefined behavior.
+
+- description: "TC-CPP-H07 - shared_ptr reference cycle"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      Parent and Child objects should be automatically destroyed when no
+      external owner remains.
+
+    context: |
+      Parent owns its Child objects.
+      A Child stores a reference back to its Parent.
+      The ownership graph should not prevent destruction.
+
+    code: |
+      struct Child;
+
+      struct Parent {
+          std::vector<std::shared_ptr<Child>> children;
+      };
+
+      struct Child {
+          std::shared_ptr<Parent> parent;
+      };
+
+      void createGraph() {
+          auto parent = std::make_shared<Parent>();
+          auto child = std::make_shared<Child>();
+
+          parent->children.push_back(child);
+          child->parent = parent;
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must identify the cyclic shared_ptr ownership.
+        The explanation should describe why the reference counts cannot
+        reach zero after external references disappear.
+        A weak_ptr for the back-reference is an appropriate fix.
+
+- description: "TC-CPP-H08 - Callback while holding mutex"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      notifyObservers() must notify observers without risking deadlock
+      or lock inversion.
+
+    context: |
+      observer->onUpdate() may call back into the same object.
+      observer->onUpdate() may also acquire other application mutexes.
+
+    code: |
+      void notifyObservers() {
+          std::lock_guard<std::mutex> lock(mutex_);
+
+          for (auto& observer : observers_) {
+              observer->onUpdate();
+          }
+      }
+
+      void onUpdate() {
+          std::lock_guard<std::mutex> lock(mutex_);
+          refresh();
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer should identify the callback-under-lock problem.
+        It should explain the concrete reentrant deadlock path shown by
+        onUpdate() and should also mention the broader lock-order/reentrancy
+        risk.
+
+- description: "TC-CPP-H09 - unique_ptr release leak"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      createSession() must either transfer ownership explicitly or ensure
+      the Session is eventually destroyed.
+
+    context: |
+      SessionManager::setSession() does not take ownership.
+      It only stores a non-owning pointer.
+
+    code: |
+      void createSession(SessionManager& manager) {
+          auto session = std::make_unique<Session>();
+
+          manager.setSession(session.release());
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must trace ownership through release().
+        After release(), unique_ptr no longer owns the Session.
+        Because setSession() is explicitly non-owning, nobody owns the
+        Session and the allocation leaks.
+
+- description: "TC-CPP-H10 - Moved-from object semantic bug"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      sendBatch() must send all messages and then record the number of
+      messages that were sent.
+
+    context: |
+      send() takes ownership of the vector by value.
+      The caller still needs the original message count afterward.
+
+    code: |
+      void sendBatch(std::vector<Message> messages) {
+          send(std::move(messages));
+
+          auditLog("Sent " + std::to_string(messages.size()) + " messages");
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must distinguish between memory safety and semantic
+        correctness.
+        The moved-from vector is valid but its size is unspecified.
+        Therefore using messages.size() to report the number sent is not
+        reliable.
+        The reviewer should recommend saving the count before moving.
+
+- description: "TC-CPP-H11 - Exception safety and partial state update"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      updateUsers() must either update all users successfully or leave
+      the database state unchanged.
+
+    context: |
+      saveUser() modifies persistent state and may throw.
+      The operation is expected to provide an all-or-nothing behavior.
+
+    code: |
+      void updateUsers(const std::vector<User>& users) {
+          for (const auto& user : users) {
+              saveUser(user);
+          }
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must connect exception behavior with the explicit
+        all-or-nothing requirement.
+        It should identify that earlier successful saveUser() calls are
+        not rolled back if a later call throws.
+        A transaction, rollback, or equivalent exception-safe strategy
+        should be suggested.
+
+- description: "TC-CPP-H12 - Stale check then use"
+  vars:
+    prompt: file://src/evals/code-review/cpp-review/prompts/cpp-review-prompt.txt
+    requirements: |
+      removeIfPresent() must remove the same Item that was verified to
+      exist and must not accidentally remove a replacement object.
+
+    context: |
+      Another thread may modify the container between the lookup and erase.
+      The container is otherwise protected by a mutex in individual methods,
+      but removeIfPresent() currently performs the operations separately.
+
+    code: |
+      void removeIfPresent(int id) {
+          if (contains(id)) {
+              unlockForOtherWork();
+
+              erase(id);
+          }
+      }
+
+  assert:
+    - type: agent-rubric
+      value: |
+        The reviewer must identify the check-then-act concurrency problem.
+        It must distinguish this from a simple unsynchronized data race.
+        The important issue is that contains() and erase() are separated,
+        allowing another thread to change the state between them.
+        The fix should make the operation atomic under the appropriate lock
+        or otherwise coordinate the lookup and removal.

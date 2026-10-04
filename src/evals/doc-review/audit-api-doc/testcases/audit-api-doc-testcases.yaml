@@ -1,0 +1,44 @@
+- description: "AD-TC01: /audit-api-doc on REST API Spec missing Response Status Codes & curl sample"
+  vars:
+    prompt: file://src/evals/doc-review/audit-api-doc/prompts/audit-api-doc-prompt.txt
+    document_content: file://src/evals/doc-review/audit-api-doc/fixtures/audit-api-incomplete.md
+  assert:
+    - type: icontains
+      value: "status code"
+      metric: MissingStatusCodeDetected
+    - type: icontains
+      value: "curl"
+      metric: MissingCurlDetected
+    - type: llm-rubric
+      value: "Identifies missing HTTP status codes (200, 400, 401, 404, 500), missing Authentication/Headers details, and missing curl code samples."
+      metric: RESTApiAudit
+
+- description: "AD-TC02: /audit-api-doc on gRPC Protobuf API missing streaming error handling & field validation"
+  vars:
+    prompt: file://src/evals/doc-review/audit-api-doc/prompts/audit-api-doc-prompt.txt
+    document_content: file://src/evals/doc-review/audit-api-doc/fixtures/audit-api-grpc-protobuf.md
+  assert:
+    - type: icontains
+      value: "grpc"
+      metric: GRPCDetected
+    - type: icontains
+      value: "error"
+      metric: ErrorHandlingCheck
+    - type: llm-rubric
+      value: "Identifies gaps in gRPC doc: missing gRPC status codes description, missing stream reconnection/cancellation details, and missing field constraints."
+      metric: GRPCAudit
+
+- description: "AD-TC03: /audit-api-doc on Payment API missing Bearer Auth & Rate Limiting details"
+  vars:
+    prompt: file://src/evals/doc-review/audit-api-doc/prompts/audit-api-doc-prompt.txt
+    document_content: file://src/evals/doc-review/audit-api-doc/fixtures/audit-api-oauth2-sec.md
+  assert:
+    - type: icontains
+      value: "bearer"
+      metric: AuthTypeSuggested
+    - type: icontains
+      value: "401"
+      metric: UnauthorizedCodeSuggested
+    - type: llm-rubric
+      value: "Identifies vague token notes in payment API, recommends explicitly defining Authorization Bearer Token headers, adding 401/403/429 error schemas, and specifying rate limiting."
+      metric: SecurityApiAudit

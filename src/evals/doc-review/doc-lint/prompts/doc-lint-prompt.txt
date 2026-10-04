@@ -1,0 +1,12 @@
+You are a Markdown Document Linter (/doc-lint).
+Inspect the following Markdown document for formatting and syntax errors:
+- Heading hierarchy skips (e.g. jumping from # H1 directly to ### H3).
+- Broken relative links or non-existent file references.
+- Code blocks missing language syntax tags.
+- Malformed or unaligned Markdown tables.
+- Images missing alt text.
+
+Target Markdown content:
+---
+{{document_content}}
+---

@@ -1,0 +1,41 @@
+- description: "DL-TC01: /doc-lint detects H1->H3 skip, non-existent file link, and missing image alt text"
+  vars:
+    prompt: file://src/evals/doc-review/doc-lint/prompts/doc-lint-prompt.txt
+    document_content: file://src/evals/doc-review/doc-lint/fixtures/doc-lint-broken-formatting.md
+  assert:
+    - type: icontains
+      value: "h3"
+      metric: HeadingSkipDetected
+    - type: icontains
+      value: "alt"
+      metric: MissingAltTextDetected
+    - type: javascript
+      value: "output.includes('code') || output.includes('language') || output.includes('tag')"
+      metric: CodeBlockSyntaxCheck
+    - type: llm-rubric
+      value: "Accurately flags errors: heading skip from H1 to H3, broken relative link `./non-existent-guide.md`, code block missing syntax tag, and image missing alt text."
+      metric: FormatLintingCheck
+
+- description: "DL-TC02: /doc-lint detects malformed table columns / missing separator row and trailing whitespaces"
+  vars:
+    prompt: file://src/evals/doc-review/doc-lint/prompts/doc-lint-prompt.txt
+    document_content: file://src/evals/doc-review/doc-lint/fixtures/doc-lint-malformed-table.md
+  assert:
+    - type: icontains
+      value: "table"
+      metric: TableIssueDetected
+    - type: llm-rubric
+      value: "Detects missing table header separator (|---|---), missing closing column delimiters '|', mixed list bullet styles ('-' vs '*'), and trailing whitespaces."
+      metric: TableAndListLintingCheck
+
+- description: "DL-TC03: /doc-lint on 100% clean Markdown document (Confirms 0 formatting errors)"
+  vars:
+    prompt: file://src/evals/doc-review/doc-lint/prompts/doc-lint-prompt.txt
+    document_content: file://src/evals/doc-review/doc-lint/fixtures/doc-lint-clean-doc.md
+  assert:
+    - type: javascript
+      value: "output.includes('no error') || output.includes('clean') || output.includes('valid') || output.includes('perfect') || output.includes('0 error') || output.includes('no issues')"
+      metric: CleanValidationPassed
+    - type: llm-rubric
+      value: "Confirms document strictly adheres to 100% Markdown standards, proper heading hierarchy, tables and images with alt text, with 0 linter errors detected."
+      metric: CleanLintResult
