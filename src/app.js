@@ -1,6 +1,6 @@
 import express from "express";
-import { evaluate } from "#src/evals/promptfoo.js";
-import { sendPRComment } from "#src/utils/githubUtil.js";
+import { runEvaluationAndComment } from "#src/utils/githubUtil.js";
+import { getAvailableSuites } from "#src/utils/evalSuiteMap.js";
 
 const app = express();
 
@@ -10,29 +10,68 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-app.get("/evaluate", async (req, res) => {
-  try {
-    const { changed_files } = req.body || {};
-    const rs = await evaluate(changed_files || []);
-    res.json(rs);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+/**
+ * List all available eval suites
+ */
+app.get("/api/suites", (req, res) => {
+  res.json({ suites: getAvailableSuites() });
 });
 
-app.post("/evaluate", async (req, res) => {
-  try {
-    const { changed_files } = req.body || {};
-    const rs = await evaluate(changed_files || []);
-    res.json(rs);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+/**
+ * Trigger evaluation with custom versions and suite/file selection
+ */
+app.post("/api/evaluate", async (req, res) => {
+  const {
+    repository,
+    old_version,
+    new_version,
+    eval_suites,
+    changed_files,
+    pr_number: directPrNumber,
+    callback,
+  } = req.body || {};
+
+  if (!repository) {
+    return res
+      .status(400)
+      .json({ error: "Missing required field: repository" });
   }
+
+  if (!new_version || (!new_version.ref && !new_version.commit_sha)) {
+    return res.status(400).json({
+      error: "Missing required field: new_version with 'ref' or 'commit_sha'",
+    });
+  }
+
+  const prNumber =
+    directPrNumber ||
+    (callback?.type === "pr_comment" ? callback.pr_number : undefined);
+
+  res.status(202).json({
+    status: "accepted",
+    message:
+      "Evaluation started. Results will be saved locally by promptfoo" +
+      (prNumber ? " and posted to PR." : "."),
+  });
+
+  runEvaluationAndComment({
+    repository,
+    old_version,
+    new_version,
+    eval_suites,
+    changed_files,
+    pr_number: prNumber,
+  }).catch((err) =>
+    console.error("[api/evaluate] Evaluation process failed:", err.message),
+  );
 });
 
-app.post("/test-webhook", async (req, res) => {
+/**
+ * Webhook triggered from GitHub Actions on PR
+ */
+app.post("/api/eval-webhook", async (req, res) => {
   const body = req.body;
-  console.log("[test-webhook] Received body:", JSON.stringify(body, null, 2));
+  console.log("[eval-webhook] Received body:", JSON.stringify(body, null, 2));
 
   const { changed_files, commit_sha, repository, ref, pr_number } = body || {};
 
@@ -46,12 +85,19 @@ app.post("/test-webhook", async (req, res) => {
     });
   }
 
-  res
-    .status(202)
-    .json({ message: "Evaluation started, result will be posted to PR." });
+  res.status(202).json({
+    status: "accepted",
+    message: "Evaluation started, result will be posted to PR.",
+  });
 
-  sendPRComment(changed_files, commit_sha, repository, ref, pr_number).catch(
-    (e) => console.error("Failed to post PR comment:", e.message),
+  runEvaluationAndComment({
+    repository,
+    old_version: { ref: "main" },
+    new_version: { ref, commit_sha },
+    changed_files,
+    pr_number,
+  }).catch((err) =>
+    console.error("[api/eval-webhook] Evaluation process failed:", err.message),
   );
 });
 

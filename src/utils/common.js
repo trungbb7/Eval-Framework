@@ -31,13 +31,27 @@ const composePluginsItem = (plugins) => {
   return pluginsItem;
 };
 
-export const composeProviders = (commit_sha, repository, ref) => {
-  const { oldPlugins, newPlugins } = get2VersionPlugins(
-    commit_sha,
-    repository,
-    ref,
+export const composeProviders = (commit_shaOrOptions, repository, ref) => {
+  let repo;
+  let oldVersion = { ref: "main" };
+  let newVersion = {};
+
+  if (typeof commit_shaOrOptions === "object" && commit_shaOrOptions !== null) {
+    repo = commit_shaOrOptions.repository;
+    oldVersion = commit_shaOrOptions.old_version || { ref: "main" };
+    newVersion = commit_shaOrOptions.new_version || {};
+  } else {
+    repo = repository;
+    oldVersion = { ref: "main" };
+    newVersion = { ref, commit_sha: commit_shaOrOptions };
+  }
+
+  const { oldPlugins, newPlugins, runDir } = get2VersionPlugins(
+    repo,
+    oldVersion,
+    newVersion,
   );
-  const providers = [];
+
   const oldPluginsItem = composePluginsItem(oldPlugins);
   const newPluginsItem = composePluginsItem(newPlugins);
 
@@ -51,57 +65,93 @@ export const composeProviders = (commit_sha, repository, ref) => {
     plugins: newPluginsItem,
   };
 
-  providers.push({
-    ...{ ...providerConfig, config: oldProviderConfig },
-    label: "Old Version",
-  });
+  const oldLabel = oldVersion.commit_sha
+    ? `Old Version (${oldVersion.commit_sha.slice(0, 7)})`
+    : `Old Version${oldVersion.ref ? ` (${oldVersion.ref})` : ""}`;
 
-  providers.push({
-    ...{ ...providerConfig, config: newProviderConfig },
-    label: `New version ${commit_sha}`,
-  });
+  const newLabel = newVersion.commit_sha
+    ? `New version ${newVersion.commit_sha.slice(0, 7)}`
+    : `New version${newVersion.ref ? ` (${newVersion.ref})` : ""}`;
 
-  return providers;
+  const providers = [
+    {
+      ...providerConfig,
+      config: oldProviderConfig,
+      label: oldLabel,
+    },
+    {
+      ...providerConfig,
+      config: newProviderConfig,
+      label: newLabel,
+    },
+  ];
+
+  return { providers, runDir };
 };
 
-const get2VersionPlugins = (commit_sha, repository, ref) => {
-  const repoUrl = `https://github.com/${repository}.git`;
-  const sandboxDir = path.resolve(__dirname, "../../plugins-sanbox");
-  const timestamp = Date.now();
-  const oldVersionDir = path.join(sandboxDir, `old-${timestamp}`);
-  const newVersionDir = path.join(sandboxDir, `new-${timestamp}`);
+const cloneRepoVersion = (repoUrl, targetDir, version = {}) => {
+  const { ref, commit_sha } = version;
+  fs.mkdirSync(targetDir, { recursive: true });
 
-  // Clear sandbox directory before cloning
-  if (fs.existsSync(sandboxDir)) {
-    console.log(`[test-webhook] Clearing sandbox directory: ${sandboxDir}`);
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+  if (!ref && !commit_sha) {
+    console.log(`[eval] Cloning default branch into: ${targetDir}`);
+    execSync(`git clone --depth 1 "${repoUrl}" "${targetDir}"`, {
+      stdio: "inherit",
+    });
+    return;
   }
-  fs.mkdirSync(sandboxDir, { recursive: true });
 
-  // Clone the latest main branch (old/baseline version)
-  console.log(`[test-webhook] Cloning main branch into: ${oldVersionDir}`);
-  execSync(
-    `git clone --depth 1 --branch main "${repoUrl}" "${oldVersionDir}"`,
-    { stdio: "inherit" },
-  );
+  if (ref && !commit_sha) {
+    console.log(`[eval] Cloning branch/tag '${ref}' into: ${targetDir}`);
+    execSync(`git clone --depth 1 --branch "${ref}" "${repoUrl}" "${targetDir}"`, {
+      stdio: "inherit",
+    });
+    return;
+  }
 
-  // Clone the PR branch at the specific commit SHA (new version)
-  console.log(
-    `[test-webhook] Cloning branch '${ref}' at commit '${commit_sha}' into: ${newVersionDir}`,
-  );
-  execSync(`git clone --branch "${ref}" "${repoUrl}" "${newVersionDir}"`, {
+  if (ref && commit_sha) {
+    console.log(
+      `[eval] Cloning branch '${ref}' at commit '${commit_sha}' into: ${targetDir}`,
+    );
+    execSync(`git clone --branch "${ref}" "${repoUrl}" "${targetDir}"`, {
+      stdio: "inherit",
+    });
+    execSync(`git -C "${targetDir}" checkout "${commit_sha}"`, {
+      stdio: "inherit",
+    });
+    return;
+  }
+
+  // Only commit_sha provided
+  console.log(`[eval] Cloning repository and checking out commit '${commit_sha}' into: ${targetDir}`);
+  execSync(`git clone "${repoUrl}" "${targetDir}"`, {
     stdio: "inherit",
   });
-  execSync(`git -C "${newVersionDir}" checkout "${commit_sha}"`, {
+  execSync(`git -C "${targetDir}" checkout "${commit_sha}"`, {
     stdio: "inherit",
   });
+};
 
-  console.log("[test-webhook] Clone completed successfully.");
+const get2VersionPlugins = (repository, oldVersion, newVersion) => {
+  const repoUrl = `https://github.com/${repository}.git`;
+  const sandboxBaseDir = path.resolve(__dirname, "../../plugins-sanbox");
+  const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const runDir = path.join(sandboxBaseDir, runId);
+  const oldVersionDir = path.join(runDir, "old");
+  const newVersionDir = path.join(runDir, "new");
 
-  // Scan plugins/ directory in each version
+  fs.mkdirSync(runDir, { recursive: true });
+
+  console.log(`[eval] Preparing sandbox run: ${runId}`);
+  cloneRepoVersion(repoUrl, oldVersionDir, oldVersion);
+  cloneRepoVersion(repoUrl, newVersionDir, newVersion);
+
+  console.log("[eval] Clone completed successfully.");
+
   const oldPlugins = getPlugins(oldVersionDir);
   const newPlugins = getPlugins(newVersionDir);
-  console.log(`[test-webhook] Old plugins (${oldPlugins.length}):`, oldPlugins);
-  console.log(`[test-webhook] New plugins (${newPlugins.length}):`, newPlugins);
-  return { oldPlugins, newPlugins };
+  console.log(`[eval] Old plugins (${oldPlugins.length}):`, oldPlugins);
+  console.log(`[eval] New plugins (${newPlugins.length}):`, newPlugins);
+
+  return { oldPlugins, newPlugins, runDir };
 };

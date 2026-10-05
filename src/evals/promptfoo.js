@@ -2,6 +2,7 @@ import promptfoo from "promptfoo";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getTestCasesByChangedFileName } from "#src/utils/filterMap.js";
+import { getTestCasesBySuiteNames } from "#src/utils/evalSuiteMap.js";
 import { promtfooCofig } from "./promptfooConfig.js";
 import { composeProviders } from "#src/utils/common.js";
 
@@ -24,9 +25,37 @@ const getTestcases = (changed_files) => {
   return tests;
 };
 
-export const evaluate = async (changed_files, commit_sha, repository, ref) => {
-  const tests = getTestcases(changed_files);
-  const providers = composeProviders(commit_sha, repository, ref);
+export const evaluate = async (
+  changedFilesOrOptions,
+  commit_sha,
+  repository,
+  ref,
+) => {
+  let tests = [];
+  let providers = [];
+
+  const isObjectOptions =
+    typeof changedFilesOrOptions === "object" &&
+    !Array.isArray(changedFilesOrOptions) &&
+    changedFilesOrOptions !== null;
+
+  if (isObjectOptions) {
+    const options = changedFilesOrOptions;
+    if (Array.isArray(options.changed_files) && options.changed_files.length > 0) {
+      tests = getTestcases(options.changed_files);
+    } else {
+      tests = getTestCasesBySuiteNames(options.eval_suites);
+    }
+
+    const res = composeProviders(options);
+    providers = res.providers;
+  } else {
+    // Positional arguments (legacy webhook)
+    tests = getTestcases(changedFilesOrOptions);
+    const res = composeProviders(commit_sha, repository, ref);
+    providers = res.providers;
+  }
+
   const testSuite = {
     ...promtfooCofig,
     tests,
@@ -42,3 +71,4 @@ export const evaluate = async (changed_files, commit_sha, repository, ref) => {
   });
   return summary;
 };
+
