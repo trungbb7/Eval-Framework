@@ -132,13 +132,10 @@ export const runEvaluationAndComment = async ({
   old_version = { ref: "main" },
   new_version = {},
   changed_files,
-  eval_suites,
   pr_number,
 }) => {
   const versionLabel =
-    new_version?.commit_sha?.slice(0, 7) ||
-    new_version?.ref ||
-    "evaluation";
+    new_version?.commit_sha?.slice(0, 7) || new_version?.ref || "evaluation";
 
   try {
     console.log(
@@ -150,7 +147,6 @@ export const runEvaluationAndComment = async ({
       old_version,
       new_version,
       changed_files,
-      eval_suites,
     });
 
     console.log(
@@ -179,4 +175,3 @@ export const runEvaluationAndComment = async ({
 };
 
 export const sendPRComment = runEvaluationAndComment;
-

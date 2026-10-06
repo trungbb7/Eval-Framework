@@ -5,6 +5,7 @@ import { getTestCasesByChangedFileName } from "#src/utils/filterMap.js";
 import { getTestCasesBySuiteNames } from "#src/utils/evalSuiteMap.js";
 import { promtfooCofig } from "./promptfooConfig.js";
 import { composeProviders } from "#src/utils/common.js";
+import { cleanup } from "#src/utils/cleanup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,42 +34,53 @@ export const evaluate = async (
 ) => {
   let tests = [];
   let providers = [];
+  let runDir;
+  try {
+    const isObjectOptions =
+      typeof changedFilesOrOptions === "object" &&
+      !Array.isArray(changedFilesOrOptions) &&
+      changedFilesOrOptions !== null;
 
-  const isObjectOptions =
-    typeof changedFilesOrOptions === "object" &&
-    !Array.isArray(changedFilesOrOptions) &&
-    changedFilesOrOptions !== null;
+    if (isObjectOptions) {
+      const options = changedFilesOrOptions;
+      if (
+        Array.isArray(options.changed_files) &&
+        options.changed_files.length > 0
+      ) {
+        tests = getTestcases(options.changed_files);
+      } else {
+        tests = getTestCasesBySuiteNames(options.eval_suites);
+      }
 
-  if (isObjectOptions) {
-    const options = changedFilesOrOptions;
-    if (Array.isArray(options.changed_files) && options.changed_files.length > 0) {
-      tests = getTestcases(options.changed_files);
+      const res = composeProviders(options);
+      providers = res.providers;
+      runDir = res.runDir;
     } else {
-      tests = getTestCasesBySuiteNames(options.eval_suites);
+      // Positional arguments (legacy webhook)
+      tests = getTestcases(changedFilesOrOptions);
+      const res = composeProviders(commit_sha, repository, ref);
+      providers = res.providers;
+      runDir = res.runDir;
     }
 
-    const res = composeProviders(options);
-    providers = res.providers;
-  } else {
-    // Positional arguments (legacy webhook)
-    tests = getTestcases(changedFilesOrOptions);
-    const res = composeProviders(commit_sha, repository, ref);
-    providers = res.providers;
+    const testSuite = {
+      ...promtfooCofig,
+      tests,
+      providers,
+      writeLatestResults: true,
+    };
+
+    console.log(`Test Suite: ${JSON.stringify(testSuite)}`);
+
+    const summary = await promptfoo.evaluate(testSuite, {
+      showProgressBar: true,
+      persist: true,
+    });
+    return summary;
+  } catch (err) {
+    console.error(err);
+    return err;
+  } finally {
+    cleanup(runDir);
   }
-
-  const testSuite = {
-    ...promtfooCofig,
-    tests,
-    providers,
-    writeLatestResults: true,
-  };
-
-  console.log(`Test Suite: ${JSON.stringify(testSuite)}`);
-
-  const summary = await promptfoo.evaluate(testSuite, {
-    showProgressBar: true,
-    persist: true,
-  });
-  return summary;
 };
-
