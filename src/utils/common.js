@@ -31,20 +31,14 @@ const composePluginsItem = (plugins) => {
   return pluginsItem;
 };
 
-export const composeProviders = (commit_shaOrOptions, repository, ref) => {
+export const composeProviders = (options) => {
   let repo;
   let oldVersion = { ref: "main" };
   let newVersion = {};
 
-  if (typeof commit_shaOrOptions === "object" && commit_shaOrOptions !== null) {
-    repo = commit_shaOrOptions.repository;
-    oldVersion = commit_shaOrOptions.old_version || { ref: "main" };
-    newVersion = commit_shaOrOptions.new_version || {};
-  } else {
-    repo = repository;
-    oldVersion = { ref: "main" };
-    newVersion = { ref, commit_sha: commit_shaOrOptions };
-  }
+  repo = options.repository;
+  oldVersion = options.old_version || { ref: "main" };
+  newVersion = options.new_version || {};
 
   const { oldPlugins, newPlugins, runDir } = get2VersionPlugins(
     repo,
@@ -103,9 +97,12 @@ const cloneRepoVersion = (repoUrl, targetDir, version = {}) => {
 
   if (ref && !commit_sha) {
     console.log(`[eval] Cloning branch/tag '${ref}' into: ${targetDir}`);
-    execSync(`git clone --depth 1 --branch "${ref}" "${repoUrl}" "${targetDir}"`, {
-      stdio: "inherit",
-    });
+    execSync(
+      `git clone --depth 1 --branch "${ref}" "${repoUrl}" "${targetDir}"`,
+      {
+        stdio: "inherit",
+      },
+    );
     return;
   }
 
@@ -123,7 +120,9 @@ const cloneRepoVersion = (repoUrl, targetDir, version = {}) => {
   }
 
   // Only commit_sha provided
-  console.log(`[eval] Cloning repository and checking out commit '${commit_sha}' into: ${targetDir}`);
+  console.log(
+    `[eval] Cloning repository and checking out commit '${commit_sha}' into: ${targetDir}`,
+  );
   execSync(`git clone "${repoUrl}" "${targetDir}"`, {
     stdio: "inherit",
   });

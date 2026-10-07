@@ -8,10 +8,9 @@ export const promtfooCofig = {
     options: {
       transform: "output.toLowerCase()",
       provider: {
-        id: "anthropic:claude-agent-sdk",
+        id: "anthropic:messages:claude-sonnet-5-5",
         label: "Judge Model Provider",
         config: {
-          model: "claude-sonnet-5-5",
           apiKeyRequired: false,
         },
       },

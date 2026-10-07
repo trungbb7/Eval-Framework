@@ -4,7 +4,7 @@ const queue = new PQueue({
   concurrency: 1,
 });
 
-const jobQueue = {
+const jobQueueService = {
   enqueue: async (jobFn) => {
     return queue.add(jobFn);
   },
@@ -28,4 +28,4 @@ const jobQueue = {
   },
 };
 
-export default jobQueue;
+export default jobQueueService;
