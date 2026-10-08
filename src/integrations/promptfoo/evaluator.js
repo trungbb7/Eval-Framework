@@ -1,14 +1,12 @@
 import promptfoo from "promptfoo";
 import path from "path";
-import { fileURLToPath } from "url";
+
 import { getTestCasesByChangedFileName } from "#src/configs/filterMap.js";
 import { getTestCasesBySuiteNames } from "#src/configs/evalSuiteMap.js";
 import { promtfooCofig } from "#src/integrations/promptfoo/config.js";
 import { composeProviders } from "#src/utils/common.js";
 import { cleanup } from "#src/utils/cleanup.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { __dirname } from "#src/base.js";
 
 const getTestcases = (changed_files) => {
   const tests = [];
@@ -54,6 +52,7 @@ export const evaluate = async (options) => {
     const summary = await promptfoo.evaluate(testSuite, {
       showProgressBar: true,
       persist: true,
+      cache: false,
     });
     return summary;
   } catch (err) {

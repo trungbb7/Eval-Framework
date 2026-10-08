@@ -1,7 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { __dirname } from "#src/base.js";
 
 /**
  * Maps eval suite names to their testcase file paths (relative to evals dir).
@@ -13,10 +12,7 @@ const evalSuiteMap = new Map([
     "doc-review/audit-api-doc/testcases/audit-api-doc-testcases.yaml",
   ],
   ["doc-lint", "doc-review/doc-lint/testcases/doc-lint-testcases.yaml"],
-  [
-    "review-doc",
-    "doc-review/review-doc/testcases/review-doc-testcases.yaml",
-  ],
+  ["review-doc", "doc-review/review-doc/testcases/review-doc-testcases.yaml"],
 ]);
 
 /**
@@ -26,12 +22,10 @@ const evalSuiteMap = new Map([
  * @returns {string[]} Relative testcase file paths
  */
 export const getTestCasesBySuiteNames = (suiteNames) => {
-  const evalsDir = path.resolve(__dirname, "../evals");
+  const evalsDir = path.resolve(__dirname, "evals");
 
   const suites =
-    suiteNames && suiteNames.length > 0
-      ? suiteNames
-      : [...evalSuiteMap.keys()];
+    suiteNames && suiteNames.length > 0 ? suiteNames : [...evalSuiteMap.keys()];
 
   const tests = [];
   for (const suite of suites) {

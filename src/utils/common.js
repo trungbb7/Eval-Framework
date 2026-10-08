@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { providerConfig } from "#src/evals/promptfooConfig.js";
+import { providerConfig } from "#src/integrations/promptfoo/config.js";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -149,8 +149,6 @@ const get2VersionPlugins = (repository, oldVersion, newVersion) => {
 
   const oldPlugins = getPlugins(oldVersionDir);
   const newPlugins = getPlugins(newVersionDir);
-  console.log(`[eval] Old plugins (${oldPlugins.length}):`, oldPlugins);
-  console.log(`[eval] New plugins (${newPlugins.length}):`, newPlugins);
 
   return { oldPlugins, newPlugins, runDir };
 };

@@ -15,7 +15,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         Evaluate the review against:
 
@@ -49,7 +49,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must identify that config is a local automatic object
         and that returning a reference to it creates a dangling reference.
@@ -76,7 +76,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         Identify the dangling-reference capture.
         The review must connect the lambda lifetime with the lifetime of
@@ -103,7 +103,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must distinguish vector capacity from vector size.
         reserve(count) does not create count elements.
@@ -129,7 +129,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must identify the integer overflow risk in
         count * elementSize before allocation.
@@ -156,7 +156,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         Evaluate whether the reviewer demonstrates an understanding of
         signed/unsigned conversion in the comparison.
@@ -196,7 +196,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must identify the cyclic shared_ptr ownership.
         The explanation should describe why the reference counts cannot
@@ -229,7 +229,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer should identify the callback-under-lock problem.
         It should explain the concrete reentrant deadlock path shown by
@@ -255,7 +255,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must trace ownership through release().
         After release(), unique_ptr no longer owns the Session.
@@ -281,7 +281,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must distinguish between memory safety and semantic
         correctness.
@@ -309,7 +309,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must connect exception behavior with the explicit
         all-or-nothing requirement.
@@ -340,7 +340,7 @@
       }
 
   assert:
-    - type: agent-rubric
+    - type: llm-rubric
       value: |
         The reviewer must identify the check-then-act concurrency problem.
         It must distinguish this from a simple unsynchronized data race.

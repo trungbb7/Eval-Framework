@@ -3,7 +3,7 @@ import { evaluate } from "#src/integrations/promptfoo/evaluator.js";
 import { formatEvaluationReport } from "#src/utils/formatUtil.js";
 
 const githubService = {
-  postPRComment: async (repository, prNumber, body) => {
+  async postPRComment(repository, prNumber, body) {
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
       console.warn("[test-webhook] GITHUB_TOKEN not set, skipping PR comment.");
@@ -36,12 +36,7 @@ const githubService = {
     );
     return res.json();
   },
-  postEvaluationComment: async (
-    repository,
-    prNumber,
-    summary,
-    versionLabel,
-  ) => {
+  async postEvaluationComment(repository, prNumber, summary, versionLabel) {
     const commentBody = formatEvaluationReport(summary, versionLabel);
     if (prNumber) {
       await this.postPRComment(repository, prNumber, commentBody);
@@ -52,13 +47,14 @@ const githubService = {
     return commentBody;
   },
 
-  runEvaluationAndComment: async ({
+  async runEvaluationAndComment({
     repository,
     old_version = { ref: "main" },
     new_version = {},
     changed_files,
+    eval_suites,
     pr_number,
-  }) => {
+  }) {
     const versionLabel =
       new_version?.commit_sha?.slice(0, 7) || new_version?.ref || "evaluation";
 
@@ -72,6 +68,7 @@ const githubService = {
         old_version,
         new_version,
         changed_files,
+        eval_suites,
       });
 
       console.log(
